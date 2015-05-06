@@ -10,6 +10,10 @@
 
 (provide tool@)
 
+(define ERROR "Error!")
+(define COMPILE-RUN-LABEL "Whalesong Run")
+(define MSG-COMPILE-UNSAVED-FILE "Please save the file before compiling")
+
 (define tool@
   (unit
     (import drracket:tool^)
@@ -24,7 +28,7 @@
 
              (let ((btn
                      (new switchable-button%
-                          (label "Whalesong Run")
+                          (label COMPILE-RUN-LABEL)
                           (callback
                             (λ (button)
                               (compile-run
@@ -37,21 +41,29 @@
                        (cons btn (remq btn l)))))))
 
 
+    ; get-output-filename : path -> string
+    ; Returns the filename of generated html file
     (define (get-output-filename fpath)
       (regexp-replace #rx"[.](rkt|ss)$" (path->string fpath) ".html"))
 
+    ; get-output-directory : path -> path
+    ; Return base directory of fpath
     (define (get-output-directory fpath)
       (match-let-values (((output-dir _ _) (split-path fpath)))
                         output-dir))
 
+    ; compile-run : path -> Void
+    ; Sets output directory to fpath's basedir, compile the file and open
+    ; on browser
     (define (compile-run fpath)
       (if (false? fpath)
-        (message-box "Error!" "Plase save the file before compiling!")
+        (message-box ERROR MSG-COMPILE-UNSAVED-FILE)
         (begin
           (current-output-dir (get-output-directory fpath))
           (build-html-and-javascript fpath)
           (send-url (get-output-filename fpath)))))
 
+    ; Bitmap for compile/run button icon
     (define compile-bitmap
       ; TODO: Make compile icon
       (let* ((bmp (make-bitmap 16 16))
