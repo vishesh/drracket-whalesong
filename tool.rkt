@@ -40,6 +40,9 @@
                      (λ (l)
                        (cons btn (remq btn l)))))))
 
+    ; get-file-url : string -> url-string
+    ; Converts a given path string to a valid url string
+    (define (get-file-url file-str) (string-append "file:///" file-str))
 
     ; get-output-filename : path -> string
     ; Returns the filename of generated html file
@@ -61,7 +64,7 @@
         (begin
           (current-output-dir (get-output-directory fpath))
           (build-html-and-javascript fpath)
-          (send-url (get-output-filename fpath)))))
+          (send-url (get-file-url (get-output-filename fpath))))))
 
     ; Bitmap for compile/run button icon
     (define compile-bitmap
