@@ -1,18 +1,20 @@
-#lang racket/gui
+#lang racket/base
 
 (require drracket/tool
          racket/class
          racket/gui/base
          racket/unit
+         racket/path
+         racket/port
          browser/external
          mrlib/switchable-button
          whalesong/whalesong-helpers)
 
 (provide tool@)
 
-(define ERROR "Error!")
 (define COMPILE-RUN-LABEL "Whalesong Run")
 (define MSG-COMPILE-UNSAVED-FILE "Please save the file before compiling")
+(define MSG-COMPILE-WHALESONG-LANG "Language must be #lang whalesong")
 
 (define tool@
   (unit
@@ -21,56 +23,57 @@
 
     (define compile-run-button-mixin
       (mixin (drracket:unit:frame<%>) ()
-             (super-new)
-             (inherit get-button-panel
-                      get-editor)
-             (inherit register-toolbar-button)
+        (super-new)
+        (inherit get-button-panel
+                 get-editor
+                 register-toolbar-button
+                 get-definitions-text)
 
-             (let ((btn
-                     (new switchable-button%
-                          (label COMPILE-RUN-LABEL)
-                          (callback
-                            (λ (button)
-                              (compile-run
-                                (send (get-editor) get-filename))))
-                          (parent (get-button-panel))
-                          (bitmap compile-bitmap))))
-               (register-toolbar-button btn)
-               (send (get-button-panel) change-children
-                     (λ (l)
-                       (cons btn (remq btn l)))))))
+        ; checks if the current language is #lang whalesong
+        (define (whalesong-lang?)
+          (define defs-txt
+            (port->string (open-input-text-editor (get-definitions-text))))
+          ; TODO: do more precise check, probably dont need entire defs text
+          (regexp-match "#lang whalesong" defs-txt))
+          
+        (define btn
+          (new switchable-button%
+               [label COMPILE-RUN-LABEL]
+               [callback
+                (λ (button)
+                  (unless (whalesong-lang?)
+                    (raise-user-error MSG-COMPILE-WHALESONG-LANG))
+                  (compile-run
+                   (send (get-editor) get-filename)))]
+               [parent (get-button-panel)]
+               [bitmap compile-bitmap]))
+        
+        (register-toolbar-button btn)
+        
+        (send (get-button-panel)
+              change-children
+              (λ (l) (cons btn (remq btn l))))))
 
-    ; get-file-url : string -> url-string
-    ; Converts a given path string to a valid url string
-    (define (get-file-url file-str) (string-append "file:///" file-str))
+    ; get-file-url : path -> url-string
+    ; Converts a given racket file path to a compiled html file url
+    (define (get-file-url fpath)
+      (string-append
+       "file:///"
+       (path->string (path-replace-suffix fpath ".html"))))
 
-    ; get-output-filename : path -> string
-    ; Returns the filename of generated html file
-    (define (get-output-filename fpath)
-      (regexp-replace #rx"[.](rkt|ss)$" (path->string fpath) ".html"))
-
-    ; get-output-directory : path -> path
-    ; Return base directory of fpath
-    (define (get-output-directory fpath)
-      (match-let-values (((output-dir _ _) (split-path fpath)))
-                        output-dir))
-
-    ; compile-run : path -> Void
-    ; Sets output directory to fpath's basedir, compile the file and open
-    ; on browser
+    ; compile-run : Maybe<path> -> Void
+    ; Set output dir to fpath's basedir, compile file and open in the browser
     (define (compile-run fpath)
-      (if (false? fpath)
-        (message-box ERROR MSG-COMPILE-UNSAVED-FILE)
-        (begin
-          (current-output-dir (get-output-directory fpath))
-          (build-html-and-javascript fpath)
-          (send-url (get-file-url (get-output-filename fpath))))))
+      (unless fpath (raise-user-error MSG-COMPILE-UNSAVED-FILE))
+      (parameterize ([current-output-dir (path-only fpath)])
+        (build-html-and-javascript fpath)
+        (send-url (get-file-url fpath))))
 
     ; Bitmap for compile/run button icon
     (define compile-bitmap
       ; TODO: Make compile icon
-      (let* ((bmp (make-bitmap 16 16))
-             (bdc (make-object bitmap-dc% bmp)))
+      (let* ([bmp (make-bitmap 16 16)]
+             [bdc (make-object bitmap-dc% bmp)])
         (send bdc erase)
         (send bdc set-smoothing 'smoothed)
         (send bdc set-pen "black" 1 'transparent)
