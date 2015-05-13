@@ -31,10 +31,9 @@
 
         ; checks if the current language is #lang whalesong
         (define (whalesong-lang?)
-          (define defs-txt
-            (port->string (open-input-text-editor (get-definitions-text))))
+          (define defs-txt-in (open-input-text-editor (get-definitions-text)))
           ; TODO: do more precise check, probably dont need entire defs text
-          (regexp-match "#lang whalesong" defs-txt))
+          (regexp-match "#lang whalesong" defs-txt-in))
           
         (define btn
           (new switchable-button%
