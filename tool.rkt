@@ -6,6 +6,7 @@
          racket/unit
          racket/path
          racket/port
+         net/url
          browser/external
          mrlib/switchable-button
          whalesong/whalesong-helpers)
@@ -13,6 +14,9 @@
 (provide tool@)
 
 (define COMPILE-RUN-LABEL "Whalesong Run")
+(define PUBLISH-LABEL "Whalesong Publish")
+(define PUBLISH-ENDPOINT-URL
+  (string->url "http://bigbang.ccs.neu.edu/api/upload"))
 (define MSG-COMPILE-UNSAVED-FILE "Please save the file before compiling")
 (define MSG-COMPILE-WHALESONG-LANG "Language must be #lang whalesong")
 
@@ -35,7 +39,8 @@
           ; TODO: do more precise check, probably dont need entire defs text
           (regexp-match "#lang whalesong" defs-txt-in))
           
-        (define btn
+        ; compile and run button
+        (define compile-btn
           (new switchable-button%
                [label COMPILE-RUN-LABEL]
                [callback
@@ -46,12 +51,33 @@
                    (send (get-editor) get-filename)))]
                [parent (get-button-panel)]
                [bitmap compile-bitmap]))
-        
-        (register-toolbar-button btn)
+
+        (register-toolbar-button compile-btn)
         
         (send (get-button-panel)
               change-children
-              (λ (l) (cons btn (remq btn l))))))
+              (λ (l) (cons compile-btn (remq compile-btn l))))
+
+        ; publish to web
+        (define publish-btn
+          (new switchable-button%
+               [label PUBLISH-LABEL]
+               [callback
+                (λ (button)
+                  (unless (whalesong-lang?)
+                    (raise-user-error MSG-COMPILE-WHALESONG-LANG))
+                  (publish-to-web
+                    (port->string
+                      (open-input-text-editor (get-definitions-text)))))]
+               [parent (get-button-panel)]
+               [bitmap compile-bitmap])) ; todo: publish bitmap
+
+        (register-toolbar-button publish-btn)
+
+        (send (get-button-panel)
+              change-children
+              (λ (l) (cons publish-btn (remq publish-btn l))))))
+
 
     ; get-file-url : path -> url-string
     ; Converts a given racket file path to a compiled html file url
@@ -67,6 +93,14 @@
       (parameterize ([current-output-dir (path-only fpath)])
         (build-html-and-javascript fpath)
         (send-url (get-file-url fpath))))
+
+    ; publish-to-web : string -> Void
+    ; Publishes whalesong program to web and opens it in the browser
+    (define (publish-to-web source)
+      (send-url
+        (port->string (post-pure-port PUBLISH-ENDPOINT-URL
+                                      (string->bytes/utf-8 source)))))
+
 
     ; Bitmap for compile/run button icon
     (define compile-bitmap
