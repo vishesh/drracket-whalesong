@@ -9,7 +9,8 @@
          net/url
          browser/external
          mrlib/switchable-button
-         whalesong/whalesong-helpers)
+         whalesong/whalesong-helpers
+         whalesong/parameters)
 
 (provide tool@)
 
@@ -90,7 +91,8 @@
     ; Set output dir to fpath's basedir, compile file and open in the browser
     (define (compile-run fpath)
       (unless fpath (raise-user-error MSG-COMPILE-UNSAVED-FILE))
-      (parameterize ([current-output-dir (path-only fpath)])
+      (parameterize ([current-output-dir (path-only fpath)]
+                     [current-root-path (path-only fpath)])
         (build-html-and-javascript fpath)
         (send-url (get-file-url fpath))))
 
